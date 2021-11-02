@@ -28,15 +28,33 @@ provider:
   lambdaHashingVersion: 20201221
   stage: ${opt:stage}
   region: us-west-2
+  environment:
+    DYNAMODB_TABLE: ${file(./${opt:stage}.config.yml):dynamodb_table}
+    # SOCKET_SERVICE_URL: ${file(./${opt:stage}.config.yml):socket_service_url}
+
 
 # you can overwrite defaults here
 #  stage: dev
 #  region: us-east-1
 
 # you can add statements to the Lambda function's IAM Role here
-#  iamRoleStatements:
-#    - Effect: "Allow"
-#      Action:
+  iamRoleStatements:
+    - Effect: "Allow"
+      Action:
+        - "dynamodb:BatchGet*"
+        - "dynamodb:DescribeStream"
+        - "dynamodb:DescribeTable"
+        - "dynamodb:Get*"
+        - "dynamodb:Query"
+        - "dynamodb:Scan"
+        - "dynamodb:BatchWrite*"
+        - "dynamodb:CreateTable"
+        - "dynamodb:Delete*"
+        - "dynamodb:Update*"
+        - "dynamodb:PutItem"
+      Resource:
+        - ${file(./${opt:stage}.config.yml):dynamodb_table_arn}
+
 #        - "s3:ListBucket"
 #      Resource: { "Fn::Join" : ["", ["arn:aws:s3:::", { "Ref" : "ServerlessDeploymentBucket" } ] ]  }
 #    - Effect: "Allow"
@@ -65,6 +83,18 @@ functions:
   hello:
     name: ${opt:stage}-hello
     handler: handler.hello
+    events:
+      - httpApi:
+          path: /hello
+          method: get
+  createSession:
+    name: ${opt:stage}-createSession
+    handler: handler.createSession
+    events:
+      - httpApi:
+          path: /sessions
+          method: post
+
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
 #    Check the event documentation for details
