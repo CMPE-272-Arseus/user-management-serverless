@@ -27,43 +27,51 @@ module.exports.createSession = async (event, context, callback) => {
   const putSessionItemCommand = new PutItemCommand({
     TableName: process.env.DYNAMODB_TABLE,
     Item: {
-      SessionID: sessionId,
-      FromUserID: UserId,
+      'SessionID': {S: sessionId},
+      'FromUserID': {S: 'hardcoded here'},
+      'ToUserID': {S: ToUserID},
       // socket url
     },
   });
 
-  DynamoClient.send(putSessionItemCommand).catch((error) => {
-    return callback(new Error(`createSession failed, userId: ${userId}, error: ${error}`));
-  });
+  const response = DynamoClient.send(putSessionItemCommand).then((data) => {
+    const response = {
+      statusCode: 200,
+      body: JSON.stringify(
+        {
+          SessionID: sessionId
+        },
+        null,
+        2
+      )
+    };
 
-  const response = {
-    statusCode: 200,
-    body: JSON.stringify(
-      {
-        SessionID: sessionId
-      },
-      null,
-      2
-    )
-  }
+    return response;
+  }).catch((error) =>  {
+    callback(new Error(`createSession failed, userId: ${ToUserID}, error: ${error}`));
 
-  return callback(null, response);
-};
-
-module.exports.getSession = async (event, context, callback) => {
-  const { SessionID } = event.PathParameters;
-
-  const getItemCommand = GetItemCommand({
-    TableName: process.env.DYNAMODB_TABLE,
-    Key: {
-      SessionID: { S: SessionID }
+    return {
+      statusCode: 500,
     }
   });
 
-  const response = {};
+  return response;
+};
+
+module.exports.getSession = async (event, context, callback) => {
+  const { sessionId } = event.pathParameters;
+
+  const getItemCommand = new GetItemCommand({
+    TableName: process.env.DYNAMODB_TABLE,
+    Key: {
+      'SessionID': { S: sessionId },
+    }
+  });
+
+  const response = {statusCode: 200};
 
   DynamoClient.send(getItemCommand).then((data) => {
+    console.log(`data:${data}`);
     response.body = JSON.stringify({
       Session: {
         SessionID: data.Item.SessionID,
@@ -72,29 +80,29 @@ module.exports.getSession = async (event, context, callback) => {
       }
     }, null, 2);
   }).catch((error) => {
-    return callback(new Error(`getSession failed, SessionID: ${SessionID}, error: ${error}`));
+    callback(new Error(`getSession failed, SessionID: ${sessionId}, error: ${error}`));
   });
 
-  return callback(null, response);
+  callback(null, response);
 };
 
 module.exports.closeSession = async (event, context, callback) => {
-  const { SessionID } = event.PathParameters;
+  const { sessionId } = event.pathParameters;
 
-  const deleteItemCommand = DeleteItemCommand({
+  const deleteItemCommand = new DeleteItemCommand({
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
-      'SessionID': { S: SessionID }
+      'SessionID': { S: sessionId }
     }
   });
 
   DynamoClient.send(deleteItemCommand).catch((error) => {
-    return callback(new Error(`deleteSession failed, SessionID: ${SessionID}, error: ${error}`));
+    callback(new Error(`deleteSession failed, SessionID: ${SessionID}, error: ${error}`));
   });
 
   const response = {
     statusCode: 200,
   };
 
-  return callback(null, response);
+  callback(null, response);
 };
