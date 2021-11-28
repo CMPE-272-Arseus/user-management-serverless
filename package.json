@@ -1,7 +1,9 @@
 {
   "name": "sessions-service",
   "version": "0.0.0",
-  "dependencies": {},
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.42.0"
+  },
   "devDependencies": {
     "aws-sdk": "^2.1037.0"
   }
