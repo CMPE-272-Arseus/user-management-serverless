@@ -1,8 +1,9 @@
 'use strict';
-const { DynamoDBClient, PutItemCommand, GetItemCommand, DeleteItemCommand } = require("@aws-sdk/client-dynamodb");
+const AWS = require('aws-sdk');
+// const { DynamoDBClient, PutItemCommand, GetItemCommand, DeleteItemCommand } = require("@aws-sdk/client-dynamodb");
 const { v4: uuidv4 } = require('uuid');
-
-const DynamoClient = new DynamoDBClient({ region: 'us-west-2' });
+const cisProvider = new AWS.CognitoIdentityServiceProvider({ apiVersion: '2016-04-18' });
+const DynamoClient = new AWS.DynamoDB.DynamoDBClient({ region: 'us-west-2' });
 
 module.exports.hello = async (event) => {
   return {
@@ -18,19 +19,34 @@ module.exports.hello = async (event) => {
   };
 };
 
-module.exports.createSession = async (event, context, callback) => {
-  const { ToUserID } = JSON.parse(event.body);
-  const sessionId = uuidv4();
+module.exports.postConfirmationRegisterUserID = async (event, context, callback) => {
+  const userId = uuidv4();
 
-  // TODO: Get a socket url from the socket server
+  const params = {
+    UserPoolId: event.userPoolId,
+    Username: event.userName,
+    UserAttributes: [{
+      Name: 'custom:userId',
+      Value: userId,
+    }],
+  };
+
+  if (event.request.userAttributes.userName) {
+    try {
+      await cisProvider.adminUpdateUserAttributes(params)
+        .promise();
+
+      console.log('Success');
+    } catch (error) {
+      callback(new Error(`postConfirmationRegisterUserID failed to modify userId: ${userId}, error: ${error}`));
+    }
+  }
 
   const putSessionItemCommand = new PutItemCommand({
     TableName: process.env.DYNAMODB_TABLE,
     Item: {
-      'SessionID': {S: sessionId},
-      'FromUserID': {S: 'hardcoded here'},
-      'ToUserID': {S: ToUserID},
-      // socket url
+      'UserID': {S: userId},
+      'AccessLevel': {S: 'unset'},
     },
   });
 
@@ -39,7 +55,7 @@ module.exports.createSession = async (event, context, callback) => {
       statusCode: 200,
       body: JSON.stringify(
         {
-          SessionID: sessionId
+          UserID: userId
         },
         null,
         2
@@ -48,61 +64,61 @@ module.exports.createSession = async (event, context, callback) => {
 
     return response;
   }).catch((error) =>  {
-    callback(new Error(`createSession failed, userId: ${ToUserID}, error: ${error}`));
-
+    callback(new Error(`createUser failed, userId: ${userId}, error: ${error}`));
     return {
       statusCode: 500,
     }
   });
 
   return response;
-};
+}
 
-module.exports.getSession = async (event, context, callback) => {
-  const { sessionId } = event.pathParameters;
 
-  const getItemCommand = new GetItemCommand({
-    TableName: process.env.DYNAMODB_TABLE,
-    Key: {
-      'SessionID': { S: sessionId },
-    }
-  });
+// module.exports.getSession = async (event, context, callback) => {
+//   const { sessionId } = event.pathParameters;
 
-  const response = {statusCode: 200};
+//   const getItemCommand = new GetItemCommand({
+//     TableName: process.env.DYNAMODB_TABLE,
+//     Key: {
+//       'SessionID': { S: sessionId },
+//     }
+//   });
 
-  DynamoClient.send(getItemCommand).then((data) => {
-    console.log(`data:${data}`);
-    response.body = JSON.stringify({
-      Session: {
-        SessionID: data.Item.SessionID,
-        ToUserID: data.Item.FromUserID,
-        SocketURL: "socket service not setup yet",
-      }
-    }, null, 2);
-  }).catch((error) => {
-    callback(new Error(`getSession failed, SessionID: ${sessionId}, error: ${error}`));
-  });
+//   const response = {statusCode: 200};
 
-  callback(null, response);
-};
+//   DynamoClient.send(getItemCommand).then((data) => {
+//     console.log(`data:${data}`);
+//     response.body = JSON.stringify({
+//       Session: {
+//         SessionID: data.Item.SessionID,
+//         ToUserID: data.Item.FromUserID,
+//         SocketURL: "socket service not setup yet",
+//       }
+//     }, null, 2);
+//   }).catch((error) => {
+//     callback(new Error(`getSession failed, SessionID: ${sessionId}, error: ${error}`));
+//   });
 
-module.exports.closeSession = async (event, context, callback) => {
-  const { sessionId } = event.pathParameters;
+//   callback(null, response);
+// };
 
-  const deleteItemCommand = new DeleteItemCommand({
-    TableName: process.env.DYNAMODB_TABLE,
-    Key: {
-      'SessionID': { S: sessionId }
-    }
-  });
+// module.exports.closeSession = async (event, context, callback) => {
+//   const { sessionId } = event.pathParameters;
 
-  DynamoClient.send(deleteItemCommand).catch((error) => {
-    callback(new Error(`deleteSession failed, SessionID: ${SessionID}, error: ${error}`));
-  });
+//   const deleteItemCommand = new DeleteItemCommand({
+//     TableName: process.env.DYNAMODB_TABLE,
+//     Key: {
+//       'SessionID': { S: sessionId }
+//     }
+//   });
 
-  const response = {
-    statusCode: 200,
-  };
+//   DynamoClient.send(deleteItemCommand).catch((error) => {
+//     callback(new Error(`deleteSession failed, SessionID: ${SessionID}, error: ${error}`));
+//   });
 
-  callback(null, response);
-};
+//   const response = {
+//     statusCode: 200,
+//   };
+
+//   callback(null, response);
+// };

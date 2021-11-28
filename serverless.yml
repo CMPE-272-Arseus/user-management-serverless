@@ -1,6 +1,9 @@
-org: moochat
-app: moochat
-service: sessions
+org: gabrielphotoprintstore
+app: photoprintstore
+service: user-management-service
+package:
+  patterns:
+    - '!terraform/**'
 
 frameworkVersion: '2'
 
@@ -8,10 +11,9 @@ provider:
   name: aws
   runtime: nodejs12.x
   lambdaHashingVersion: 20201221
-  stage: ${opt:stage}
   region: us-west-2
   environment:
-    DYNAMODB_TABLE: ${file(./${opt:stage}.config.yml):dynamodb_table}
+    DYNAMODB_TABLE: ${file(config.yml):dynamodb_table}
     # SOCKET_SERVICE_URL: ${file(./${opt:stage}.config.yml):socket_service_url}
 
   iamRoleStatements:
@@ -29,42 +31,58 @@ provider:
         - "dynamodb:Update*"
         - "dynamodb:PutItem"
       Resource:
-        - ${file(./${opt:stage}.config.yml):dynamodb_table_arn}
+        - ${file(./config.yml):dynamodb_table_arn}
+    - Effect: "Allow"
+      Action:
+        - "cognito-idp:AdminUpdateUserAttributes"
+      Resource:
+        - ${file(./config.yml):user_pool_arn}
 
 functions:
   hello:
-    name: ${opt:stage}-hello
+    name: hello
     handler: handler.hello
     events:
       - httpApi:
           path: /hello
           method: get
-  createSession:
-    name: ${opt:stage}-createSession
-    handler: handler.createSession
-    events:
-      - httpApi:
-          path: /sessions
-          method: post
-  getSession:
-    name: ${opt:stage}-getSession
-    handler: handler.getSession
-    events:
-      - httpApi:
-          path: /sessions/{sessionId}
-          method: get 
-          request:
-            parameters:
-              paths:
-                sessionId: true
-  closeSession:
-    name: ${opt:stage}-closeSession
-    handler: handler.closeSession
-    events:
-      - httpApi:
-          path: /sessions/{sessionId}
-          method: delete 
-          request:
-            parameters:
-              paths:
-                sessionId: true
+  postConfirmationRegisterUserID:
+    name: postConfirmationRegisterUserID
+    handler: handler.postConfirmationRegisterUserID
+  # createUser:
+  #   name: createUser
+  #   handler: handler.createUser
+  #   events:
+  #     - httpApi:
+  #         path: /
+  #         method: post
+
+  # createSession:
+  #   name: ${opt:stage}-createSession
+  #   handler: handler.createSession
+  #   events:
+  #     - httpApi:
+  #         path: /sessions
+  #         method: post
+  # getSession:
+  #   name: ${opt:stage}-getSession
+  #   handler: handler.getSession
+  #   events:
+  #     - httpApi:
+  #         path: /sessions/{sessionId}
+  #         method: get
+  #         request:
+  #           parameters:
+  #             paths:
+  #               sessionId: true
+  # closeSession:
+  #   name: ${opt:stage}-closeSession
+  #   handler: handler.closeSession
+  #   events:
+  #     - httpApi:
+  #         path: /sessions/{sessionId}
+  #         method: delete
+  #         request:
+  #           parameters:
+  #             paths:
+  #               sessionId: true
