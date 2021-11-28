@@ -12,6 +12,18 @@ provider:
   runtime: nodejs12.x
   lambdaHashingVersion: 20201221
   region: us-west-2
+  httpApi:
+    cors:
+      allowedOrigins:
+        - "*"
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+        - PATCH
+        - DELETE
   environment:
     DYNAMODB_TABLE: ${file(config.yml):dynamodb_table}
     # SOCKET_SERVICE_URL: ${file(./${opt:stage}.config.yml):socket_service_url}
@@ -49,6 +61,15 @@ functions:
   postConfirmationRegisterUserID:
     name: postConfirmationRegisterUserID
     handler: handler.postConfirmationRegisterUserID
+  updateUserInformation:
+    name: updateUserInformation
+    handler: handler.updateUserInformation
+    events:
+      - httpApi:
+          path: /{userId}
+          method: patch
+
+
   # createUser:
   #   name: createUser
   #   handler: handler.createUser
