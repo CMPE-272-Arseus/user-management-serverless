@@ -38,7 +38,7 @@ module.exports.postConfirmationRegisterUserID = (event, context, callback) => {
   });
 };
 
-function getCallerAccessLevel(userId, callback) {
+function getUserInfo(userId) {
   const params = {
     TableName: process.env.DYNAMODB_TABLE,
     Item: {
@@ -46,81 +46,87 @@ function getCallerAccessLevel(userId, callback) {
     }
   }
 
-  return ddb.getItem(params, callback);
+  return ddb.getItem(params);
 }
 
 module.exports.updateUserInformation = (event, context, callback) => {
   const { userId } = event.pathParameters;
   const { Street, City, State, Zipcode, AccessLevel } = JSON.parse(event.body);
-  const userName = event.requestContext.authorizer.jwt.claims.userName;
+  console.log(AccessLevel);
+  const userName = event.requestContext.authorizer.jwt.claims["cognito:username"];
+  console.log(event.requestContext.authorizer.jwt.claims["cognito:username"]);
   console.log(`updateUserInformation: authorizer claim, userName ${userName}`);
   var requesterAccessLevel;
 
-  if (userId != userName) {
-    requesterAccessLevel = await getCallerAccessLevel(userName)
-      .then(data => data.AccessLevel)
-      .error(err => {
-        console.error("updateUserInformation: failed to get caller access level error:", err);
-        callback(null, {statusCode: 403});
-      });
-
-    if (requesterAccessLevel != "Admin"){
-      console.info(`updateUserInformation: insufficient permissions to access resource, requester: ${userName}, userId ${userId}, al ${data.AccessLevel}`);
+  requesterAccessLevel = getUserInfo(userName).promise()
+    .then(data => data.AccessLevel)
+    .catch(err => {
+      console.error("updateUserInformation: failed to get caller access level error:", err);
       callback(null, {statusCode: 403});
-    }
-    console.log("updateUserInformation: jwt claims verified successfully");
+      return;
+    });
+
+  if (requesterAccessLevel != "Admin" && userId != userName){
+    console.info(`updateUserInformation: insufficient permissions to access resource, requester: ${userName}, userId ${userId}, al ${data.AccessLevel}`);
+    callback(null, {statusCode: 403});
+    return;
   }
+  console.log("updateUserInformation: jwt claims verified successfully");
 
   const params = {
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
-      'UserID': userId,
+      'UserID': {S: userId},
     },
-    UpdateExpression: "set Address:Street=:street, Address.City=:city, Address.State=:state,Address.Zipcode=:zipcode",
+    UpdateExpression: "set Street=:street, City=:city, Province=:state, Zipcode=:zipcode",
     ExpressionAttributeValues:{
-      ":street":Street,
-      ":city":City,
-      ":state":State,
-      ":zipcode":Zipcode,
+      ":street":{S: Street},
+      ":city":{S: City},
+      ":state":{S: State},
+      ":zipcode":{N: Zipcode},
     },
     ReturnValues:"UPDATED_NEW"
   };
 
-  ddb.update(params, function(err, data) {
-    if (err) {
-      console.error("updateUserInformation: failed to update address information, error", error);
-      callback(null, { statusCode:500 });
-    } else {
+  ddb.updateItem(params).promise()
+    .then(data => {
       console.log("updateUserInformation: successfully updated addresses, data", data);
-    }
-  });
+    })
+    .catch(err => {
+      console.error("updateUserInformation: failed to update address information, error", err);
+      callback(null, { statusCode:500 });
+      return;
+    });
 
-  if (requesterAccessLevel != "Admin") {
+  if (!AccessLevel || requesterAccessLevel != "Admin") {
     callback(null, {
       statusCode: 200,
       headers: {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
       },
-      message: 'successfully updated address',
+      body: JSON.stringify({
+        message: 'successfully updated address',
+      }),
     });
+    return;
   }
 
   const updateAccessLevel = {
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
-      'UserID': userId,
+      'UserID': {S: userId},
     },
     UpdateExpression: "set AccessLevel=:a",
     ExpressionAttributeValues:{
-      ":a":AccessLevel,
+      ":a":{S: AccessLevel},
     },
     ReturnValues:"UPDATED_NEW"
   };
 
-  ddb.update(params, function(err, data) {
+  ddb.updateItem(updateAccessLevel, function(err, data) {
     if (err) {
-      console.error("updateUserInformation: failed to update accesslevel, error", error);
+      console.error("updateUserInformation: failed to update accesslevel, error", err);
       callback(null, { statusCode:500 });
     } else {
       console.log("updateUserInformation: successfully updated accesslevel, data", data);
@@ -134,6 +140,46 @@ module.exports.updateUserInformation = (event, context, callback) => {
       });
     }
   });
+}
+
+module.exports.getUserInformation = (event, context, callback) => {
+  const { userId } = event.pathParameters;
+  const userName = event.requestContext.authorizer.jwt.claims["cognito:username"];
+  console.log(`getUserInformation: request from auth claim ${event.requestContext.authorizer.jwt.claims["cognito:username"]}`);
+  var userData = getUserInfo(userName).promise()
+    .then(data => data.AccessLevel)
+    .catch(err => {
+      console.error("getUserInformation: failed to get caller access level error:", err);
+      callback(null, {statusCode: 403});
+      return;
+    });
+
+  if (userData.AccessLevel != "Admin" && userId != userName){
+    console.info(`getUserInformation: insufficient permissions to access resource, requester: ${userName}, userId ${userId}, al ${data.AccessLevel}`);
+    callback(null, {statusCode: 403});
+    return;
+  }
+
+  console.log("getUserInformation: jwt claims verified successfully");
+
+  const response = {
+    statusCode: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Credentials': true,
+    },
+    body: JSON.stringify({
+      UserID: userName,
+      Street: userData.Street,
+      City: userData.City,
+      State: userData.Province,
+      Zipcode: userData.Zipcode,
+      AccessLevel: userData.AccessLevel,
+    }),
+  };
+
+  callback(null, response);
+  return;
 }
 
 

@@ -68,6 +68,14 @@ functions:
       - httpApi:
           path: /{userId}
           method: patch
+  getUserInformation:
+    name: getUserInformation
+    handler: handler.getUserInformation
+    events:
+      - httpApi:
+          path: /{userId}
+          method: get
+
 
 
   # createUser:
