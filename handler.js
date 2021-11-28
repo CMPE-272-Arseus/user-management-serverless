@@ -1,9 +1,8 @@
 'use strict';
 const AWS = require('aws-sdk');
-// const { DynamoDBClient, PutItemCommand, GetItemCommand, DeleteItemCommand } = require("@aws-sdk/client-dynamodb");
-const { v4: uuidv4 } = require('uuid');
-const cisProvider = new AWS.CognitoIdentityServiceProvider({ apiVersion: '2016-04-18' });
-const DynamoClient = new AWS.DynamoDB.DynamoDBClient({ region: 'us-west-2' });
+AWS.config.update({region: 'us-west-2'});
+var ddb = new AWS.DynamoDB({apiVersion: '2012-08-10'});
+
 
 module.exports.hello = async (event) => {
   return {
@@ -19,58 +18,28 @@ module.exports.hello = async (event) => {
   };
 };
 
-module.exports.postConfirmationRegisterUserID = async (event, context, callback) => {
-  const userId = uuidv4();
-
+module.exports.postConfirmationRegisterUserID = (event, context, callback) => {
   const params = {
-    UserPoolId: event.userPoolId,
-    Username: event.userName,
-    UserAttributes: [{
-      Name: 'custom:userId',
-      Value: userId,
-    }],
-  };
-
-  if (event.request.userAttributes.userName) {
-    try {
-      await cisProvider.adminUpdateUserAttributes(params)
-        .promise();
-
-      console.log('Success');
-    } catch (error) {
-      callback(new Error(`postConfirmationRegisterUserID failed to modify userId: ${userId}, error: ${error}`));
-    }
-  }
-
-  const putSessionItemCommand = new PutItemCommand({
     TableName: process.env.DYNAMODB_TABLE,
     Item: {
-      'UserID': {S: userId},
+      'UserID': {S: event.userName},
       'AccessLevel': {S: 'unset'},
     },
-  });
+  };
 
-  const response = DynamoClient.send(putSessionItemCommand).then((data) => {
-    const response = {
-      statusCode: 200,
-      body: JSON.stringify(
-        {
-          UserID: userId
-        },
-        null,
-        2
-      )
-    };
-
-    return response;
-  }).catch((error) =>  {
-    callback(new Error(`createUser failed, userId: ${userId}, error: ${error}`));
-    return {
-      statusCode: 500,
+  ddb.putItem(params, function(err, data) {
+    if (err){
+      console.log(`postConfirmationRegisterUserID: failed to create entry in table userId: ${event.userName}, error: ${error}`)
+      callback(null, event);
+    } else {
+      console.log("postConfirmationRegisterUserID: successfully wrote to db");
+      callback(null, event);
     }
   });
+};
 
-  return response;
+module.exports.updateUserInformation = (event, context, callback) => {
+
 }
 
 

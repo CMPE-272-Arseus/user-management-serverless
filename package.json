@@ -3,7 +3,6 @@
   "version": "0.0.0",
   "dependencies": {},
   "devDependencies": {
-    "@aws-sdk/client-dynamodb": "^3.42.0",
     "aws-sdk": "^2.1037.0"
   }
 }
