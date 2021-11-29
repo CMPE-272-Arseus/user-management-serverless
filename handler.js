@@ -25,6 +25,9 @@ module.exports.postConfirmationRegisterUserID = (event) => {
     Item: {
       'UserID': {S: event.userName},
       'AccessLevel': {S: 'unset'},
+      'FirstName': {S: event.givenName},
+      'LastName': {S: event.familyName},
+      'Email': {S: event.email},
     },
   };
 
@@ -126,7 +129,7 @@ module.exports.updateUserInformation = async (event) => {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Credentials': true,
       },
-      message: 'successfully AccessLevel',
+      message: 'successfully updated AccessLevel',
     };
   } catch (err) {
     console.error("updateUserInformation: failed to update accesslevel, error", err);
@@ -187,6 +190,9 @@ module.exports.getUserInformation = async (event) => {
       State: userInfo.Province.S,
       Zipcode: userInfo.Zipcode.N,
       AccessLevel: userInfo.AccessLevel.S,
+      Email: userInfo.Email.S,
+      FirstName: userInfo.FirstName.S,
+      LastName: userInfo.LastName.S,
     }),
   };
 }
