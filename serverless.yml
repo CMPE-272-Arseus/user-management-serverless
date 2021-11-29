@@ -1,6 +1,6 @@
-org: gabrielphotoprintstore
-app: photoprintstore
-service: user-management-service
+# org: gabrielphotoprintstore
+# app: pps
+service: usermng
 package:
   patterns:
     - '!terraform/**'
@@ -58,8 +58,8 @@ functions:
       - httpApi:
           path: /hello
           method: get
-  postConfirmRegisterUserInDB:
-    name: postConfirmRegisterUserInDB
+  postConfirmationTrigger:
+    name: postConfirmationTrigger
     handler: handler.postConfirmRegisterUserInDB
   updateUserInformation:
     name: updateUserInformation

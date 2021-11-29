@@ -45,7 +45,7 @@ module.exports.updateUserInformation = async (event) => {
   }
 
   if (reqAccessLvl != "Admin" && userId != userName){
-    console.info(`updateUserInformation: insufficient permissions to access resource, requester: ${userName}, userId ${userId}, al ${data.AccessLevel}`);
+    console.info(`updateUserInformation: insufficient permissions to access resource, requester: ${userName}, userId ${userId}, al ${reqAccessLevel}`);
     return {statusCode: 403};
   }
 
@@ -229,16 +229,17 @@ module.exports.listUsers = async (event) => {
   };
 };
 
-module.exports.postConfirmRegisterUserInDB = (event) => {
+module.exports.postConfirmRegisterUserInDB = (event, context, callback) => {
+  const userAttributes = event.request.userAttributes;
   console.log(event);
   const params = {
     TableName: process.env.DYNAMODB_TABLE,
     Item: {
       'UserID': {S: event.userName},
-      'AccessLevel': {S: 'unset'},
-      'FirstName': {S: event.givenName},
-      'LastName': {S: event.familyName},
-      'Email': {S: event.email},
+      'AccessLevel': {S: 'customer'},
+      'FirstName': {S: userAttributes.given_name},
+      'LastName': {S: userAttributes.family_name},
+      'Email': {S: userAttributes.email},
     },
   };
 
