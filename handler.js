@@ -50,7 +50,7 @@ module.exports.updateUserInformation = async (event) => {
   const cmd = new GetItemCommand({
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
-      'UserID': {S: userId}
+      'UserID': {S: userName}
     },
   });
 
@@ -142,7 +142,7 @@ module.exports.getUserInformation = async (event) => {
   const cmd = new GetItemCommand({
     TableName: process.env.DYNAMODB_TABLE,
     Key: {
-      'UserID': {S: userId}
+      'UserID': {S: userName}
     },
   });
 
@@ -156,13 +156,23 @@ module.exports.getUserInformation = async (event) => {
     return {statusCode: 403};
   }
 
-  if (userInfo.AccessLevel != "Admin" && userId != userName){
-    console.info(`getUserInformation: insufficient permissions to access resource, requester: ${userName}, userId ${userId}, al ${userInfo.AccessLevel}`);
+  if (userInfo.AccessLevel.S != "Admin" && userId != userName){
+    console.info(`getUserInformation: insufficient permissions to access resource, requester: ${userName}, userId ${userId}, al ${userInfo.AccessLevel.S}`);
     return {statusCode: 403};
   }
 
   console.log("getUserInformation: jwt claims verified successfully");
   console.log("getUserInformation: userInfo", userInfo);
+
+  if (userInfo == null) {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Credentials': true,
+      },
+    }
+  }
 
   return {
     statusCode: 200,
@@ -172,61 +182,66 @@ module.exports.getUserInformation = async (event) => {
     },
     body: JSON.stringify({
       UserID: userName,
-      Street: userInfo.Street,
-      City: userInfo.City,
-      State: userInfo.Province,
-      Zipcode: userInfo.Zipcode,
-      AccessLevel: userInfo.AccessLevel,
+      Street: userInfo.Street.S,
+      City: userInfo.City.S,
+      State: userInfo.Province.S,
+      Zipcode: userInfo.Zipcode.N,
+      AccessLevel: userInfo.AccessLevel.S,
     }),
   };
 }
 
+module.exports.listUsers = async (event) => {
+  const userName = event.requestContext.authorizer.jwt.claims["cognito:username"];
+  console.log(`listUsers: request from auth claim ${event.requestContext.authorizer.jwt.claims["cognito:username"]}`);
 
-// module.exports.getSession = async (event, context, callback) => {
-//   const { sessionId } = event.pathParameters;
+  const cmd = new GetItemCommand({
+    TableName: process.env.DYNAMODB_TABLE,
+    Key: {
+      'UserID': {S: userName}
+    },
+  });
 
-//   const getItemCommand = new GetItemCommand({
-//     TableName: process.env.DYNAMODB_TABLE,
-//     Key: {
-//       'SessionID': { S: sessionId },
-//     }
-//   });
+  let userInfo;
+  try {
+    const ui = await ddbc.send(cmd);
+    console.log("listUsers: userInfo retrieved");
+    userInfo = ui.Item;
+  } catch (err) {
+    console.error("listUsers: failed to get user info error:", err);
+    return {statusCode: 403};
+  }
 
-//   const response = {statusCode: 200};
 
-//   DynamoClient.send(getItemCommand).then((data) => {
-//     console.log(`data:${data}`);
-//     response.body = JSON.stringify({
-//       Session: {
-//         SessionID: data.Item.SessionID,
-//         ToUserID: data.Item.FromUserID,
-//         SocketURL: "socket service not setup yet",
-//       }
-//     }, null, 2);
-//   }).catch((error) => {
-//     callback(new Error(`getSession failed, SessionID: ${sessionId}, error: ${error}`));
-//   });
 
-//   callback(null, response);
-// };
+  if (userInfo.AccessLevel.S != "Admin"){
+    console.info(`listUsers: insufficient permissions to access resource, requester: ${userName}, al ${userInfo.AccessLevel.S}`);
+    return {statusCode: 403};
+  }
 
-// module.exports.closeSession = async (event, context, callback) => {
-//   const { sessionId } = event.pathParameters;
+  console.log("listUsers: jwt claims verified successfully");
 
-//   const deleteItemCommand = new DeleteItemCommand({
-//     TableName: process.env.DYNAMODB_TABLE,
-//     Key: {
-//       'SessionID': { S: sessionId }
-//     }
-//   });
+  const scanCmd = new ScanCommand({
+    TableName: process.env.DYNAMODB_TABLE,
+    Select: "ALL_ATTRIBUTES"
+  });
 
-//   DynamoClient.send(deleteItemCommand).catch((error) => {
-//     callback(new Error(`deleteSession failed, SessionID: ${SessionID}, error: ${error}`));
-//   });
+  let usersList;
+  try {
+    const list = await ddbc.send(scanCmd)
+    console.log("listUSers: userList scanned", list);
+    usersList = list.Item;
+  } catch (err) {
+    console.error("listUsers: dynamodb failed to get users list");
+    return {statusCode: 403};
+  }
 
-//   const response = {
-//     statusCode: 200,
-//   };
-
-//   callback(null, response);
-// };
+  return {
+    statusCode: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Credentials': true,
+    },
+    body: JSON.stringify(usersList),
+  };
+}
