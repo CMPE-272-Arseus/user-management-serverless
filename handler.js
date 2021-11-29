@@ -2,7 +2,7 @@
 const AWS = require('aws-sdk');
 AWS.config.update({region: 'us-west-2'});
 var ddb = new AWS.DynamoDB({apiVersion: '2012-08-10'});
-const { DynamoDBClient, PutItemCommand, GetItemCommand, UpdateItemCommand } = require('@aws-sdk/client-dynamodb');
+const { DynamoDBClient, GetItemCommand, UpdateItemCommand, ScanCommand } = require('@aws-sdk/client-dynamodb');
 const ddbc = new DynamoDBClient({region: 'us-west-2'});
 
 module.exports.hello = async (event) => {
@@ -230,7 +230,7 @@ module.exports.listUsers = async (event) => {
   try {
     const list = await ddbc.send(scanCmd)
     console.log("listUSers: userList scanned", list);
-    usersList = list.Item;
+    usersList = list.Items;
   } catch (err) {
     console.error("listUsers: dynamodb failed to get users list");
     return {statusCode: 403};
