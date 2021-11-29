@@ -19,29 +19,6 @@ module.exports.hello = async (event) => {
   };
 };
 
-module.exports.postConfirmationRegisterUserID = (event) => {
-  const params = {
-    TableName: process.env.DYNAMODB_TABLE,
-    Item: {
-      'UserID': {S: event.userName},
-      'AccessLevel': {S: 'unset'},
-      'FirstName': {S: event.givenName},
-      'LastName': {S: event.familyName},
-      'Email': {S: event.email},
-    },
-  };
-
-  ddb.putItem(params, function(err, data) {
-    if (err){
-      console.log(`postConfirmationRegisterUserID: failed to create entry in table userId: ${event.userName}, error: ${error}`)
-      callback(null, event);
-    } else {
-      console.log("postConfirmationRegisterUserID: successfully wrote to db");
-      callback(null, event);
-    }
-  });
-};
-
 module.exports.updateUserInformation = async (event) => {
   const { userId } = event.pathParameters;
   const { Street, City, State, Zipcode, AccessLevel } = JSON.parse(event.body);
@@ -135,7 +112,7 @@ module.exports.updateUserInformation = async (event) => {
     console.error("updateUserInformation: failed to update accesslevel, error", err);
     return { statusCode:500 };
   }
-}
+};
 
 module.exports.getUserInformation = async (event) => {
   const { userId } = event.pathParameters;
@@ -195,7 +172,7 @@ module.exports.getUserInformation = async (event) => {
       LastName: userInfo.LastName.S,
     }),
   };
-}
+};
 
 module.exports.listUsers = async (event) => {
   const userName = event.requestContext.authorizer.jwt.claims["cognito:username"];
@@ -250,4 +227,28 @@ module.exports.listUsers = async (event) => {
     },
     body: JSON.stringify(usersList),
   };
-}
+};
+
+module.exports.postConfirmRegisterUserInDB = (event) => {
+  console.log(event);
+  const params = {
+    TableName: process.env.DYNAMODB_TABLE,
+    Item: {
+      'UserID': {S: event.userName},
+      'AccessLevel': {S: 'unset'},
+      'FirstName': {S: event.givenName},
+      'LastName': {S: event.familyName},
+      'Email': {S: event.email},
+    },
+  };
+
+  ddb.putItem(params, function(err, data) {
+    if (err){
+      console.log(`postConfirmationRegisterUserID: failed to create entry in table userId: ${event.userName}, error: ${err}`)
+      callback(null, event);
+    } else {
+      console.log("postConfirmationRegisterUserID: successfully wrote to db");
+      callback(null, event);
+    }
+  });
+};

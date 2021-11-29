@@ -58,9 +58,9 @@ functions:
       - httpApi:
           path: /hello
           method: get
-  postConfirmationRegisterUserID:
-    name: postConfirmationRegisterUserID
-    handler: handler.postConfirmationRegisterUserID
+  postConfirmRegisterUserInDB:
+    name: postConfirmRegisterUserInDB
+    handler: handler.postConfirmRegisterUserInDB
   updateUserInformation:
     name: updateUserInformation
     handler: handler.updateUserInformation
