@@ -49,27 +49,29 @@ module.exports.updateUserInformation = async (event) => {
     return {statusCode: 403};
   }
 
-  const addressCmd = new UpdateItemCommand({
-    TableName: process.env.DYNAMODB_TABLE,
-    Key: {
-      'UserID': {S: userId},
-    },
-    UpdateExpression: "set Street=:street, City=:city, Province=:state, Zipcode=:zipcode",
-    ExpressionAttributeValues:{
-      ":street":{S: Street},
-      ":city":{S: City},
-      ":state":{S: State},
-      ":zipcode":{N: Zipcode},
-    },
-    ReturnValues:"UPDATED_NEW"
-  });
+  if (Street && City && State && Zipcode) {
+    const addressCmd = new UpdateItemCommand({
+      TableName: process.env.DYNAMODB_TABLE,
+      Key: {
+        'UserID': {S: userId},
+      },
+      UpdateExpression: "set Street=:street, City=:city, Province=:state, Zipcode=:zipcode",
+      ExpressionAttributeValues:{
+        ":street":{S: Street},
+        ":city":{S: City},
+        ":state":{S: State},
+        ":zipcode":{S: Zipcode},
+      },
+      ReturnValues:"UPDATED_NEW"
+    });
 
-  try {
-    const data = await ddbc.send(addressCmd);
-    console.log("updateUserInformation: successfully updated addresses, data", data);
-  } catch (err) {
-    console.error("updateUserInformation: failed to update address information, error", err);
-    return { statusCode:500 };
+    try {
+      const data = await ddbc.send(addressCmd);
+      console.log("updateUserInformation: successfully updated addresses, data", data);
+    } catch (err) {
+      console.error("updateUserInformation: failed to update address information, error", err);
+      return { statusCode:500 };
+    }
   }
 
   if (!AccessLevel || reqAccessLvl != "Admin") {
@@ -165,7 +167,7 @@ module.exports.getUserInformation = async (event) => {
       Street: userInfo.Street.S,
       City: userInfo.City.S,
       State: userInfo.Province.S,
-      Zipcode: userInfo.Zipcode.N,
+      Zipcode: userInfo.Zipcode.S,
       AccessLevel: userInfo.AccessLevel.S,
       Email: userInfo.Email.S,
       FirstName: userInfo.FirstName.S,
